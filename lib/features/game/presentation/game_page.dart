@@ -7,6 +7,7 @@ import '../../../shared/theme/app_theme.dart';
 import '../domain/game_logic.dart';
 import '../providers/game_providers.dart';
 import 'widgets/game_board.dart';
+import 'widgets/player_clock.dart';
 
 class GamePage extends ConsumerWidget {
   final String gameId;
@@ -36,6 +37,7 @@ class GamePage extends ConsumerWidget {
     final myPiece =
         GameLogic.getPieceForUser(myUserId, game.playerX ?? '', game.playerO ?? '');
     final isMyTurn = GameLogic.isMyTurn(game.turn, myUserId);
+    final isPlayerX = myUserId == game.playerX;
 
     return Scaffold(
       body: Container(
@@ -71,6 +73,35 @@ class GamePage extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(width: 48), // balance
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // Clock row
+                Row(
+                  children: [
+                    Expanded(
+                      child: PlayerClock(
+                        deadline: isPlayerX ? game.oDeadline : game.xDeadline,
+                        remainingMs: isPlayerX
+                            ? game.oTimeRemainingMs
+                            : game.xTimeRemainingMs,
+                        piece: isPlayerX ? 'O' : 'X',
+                        isActive: game.status == 'playing' &&
+                            game.turn == (isPlayerX ? game.playerO : game.playerX),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: PlayerClock(
+                        deadline: isPlayerX ? game.xDeadline : game.oDeadline,
+                        remainingMs: isPlayerX
+                            ? game.xTimeRemainingMs
+                            : game.oTimeRemainingMs,
+                        piece: isPlayerX ? 'X' : 'O',
+                        isActive: game.status == 'playing' &&
+                            game.turn == (isPlayerX ? game.playerX : game.playerO),
+                      ),
+                    ),
                   ],
                 ),
                 const Spacer(),
@@ -110,6 +141,7 @@ class GamePage extends ConsumerWidget {
       BuildContext context, GameState game, String myUserId) {
     final isWin = game.winner == myUserId;
     final isDraw = game.status == 'draw';
+    final isTimeout = game.finishReason == 'timeout';
 
     showDialog(
       context: context,
@@ -123,9 +155,11 @@ class GamePage extends ConsumerWidget {
               Icon(
                 isDraw
                     ? Icons.handshake
-                    : isWin
-                        ? Icons.emoji_events
-                        : Icons.sentiment_dissatisfied,
+                    : isTimeout
+                        ? Icons.timer_off
+                        : isWin
+                            ? Icons.emoji_events
+                            : Icons.sentiment_dissatisfied,
                 color: isDraw
                     ? AppColors.draw
                     : isWin
@@ -137,15 +171,18 @@ class GamePage extends ConsumerWidget {
               Text(
                 isDraw
                     ? 'DRAW!'
-                    : isWin
-                        ? 'YOU WIN!'
-                        : 'YOU LOSE',
+                    : isTimeout
+                        ? (isWin ? 'OPPONENT TIMED OUT' : "TIME'S UP!")
+                        : isWin
+                            ? 'YOU WIN!'
+                            : 'YOU LOSE',
                 style: Theme.of(ctx).textTheme.headlineMedium?.copyWith(
                       color: isDraw
                           ? AppColors.draw
                           : isWin
                               ? AppColors.win
                               : AppColors.loss,
+                      fontSize: isTimeout ? 18 : null,
                     ),
               ),
               const SizedBox(height: 24),

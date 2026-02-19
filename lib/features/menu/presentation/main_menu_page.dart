@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/app_theme.dart';
 import '../../auth/providers/auth_providers.dart';
+import '../../matchmaking/domain/time_control.dart';
 import '../../matchmaking/presentation/matchmaking_dialog.dart';
+import '../../matchmaking/presentation/time_control_selector.dart';
 
 class MainMenuPage extends ConsumerWidget {
   const MainMenuPage({super.key});
@@ -44,12 +46,18 @@ class MainMenuPage extends ConsumerWidget {
               SizedBox(
                 width: 240,
                 child: ElevatedButton.icon(
-                  onPressed: () {
-                    showDialog(
+                  onPressed: () async {
+                    final tc = await showDialog<TimeControl>(
                       context: context,
-                      barrierDismissible: false,
-                      builder: (_) => const MatchmakingDialog(),
+                      builder: (_) => const TimeControlSelectorDialog(),
                     );
+                    if (tc != null && context.mounted) {
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (_) => MatchmakingDialog(timeControl: tc),
+                      );
+                    }
                   },
                   icon: const Icon(Icons.play_arrow_rounded),
                   label: const Text('FIND MATCH'),

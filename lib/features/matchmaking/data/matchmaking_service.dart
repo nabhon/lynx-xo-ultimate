@@ -11,8 +11,11 @@ class MatchmakingService {
   String get _userId => _client.auth.currentUser!.id;
 
   /// Insert current user into the matchmaking queue.
-  Future<void> joinQueue() async {
-    await _client.from('queue').insert({'user_id': _userId});
+  Future<void> joinQueue({int timeControlSeconds = 60}) async {
+    await _client.from('queue').insert({
+      'user_id': _userId,
+      'time_control_seconds': timeControlSeconds,
+    });
   }
 
   /// Remove current user from the queue.

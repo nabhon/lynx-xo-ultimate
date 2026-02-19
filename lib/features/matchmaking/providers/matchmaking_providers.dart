@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/matchmaking_service.dart';
+import '../domain/time_control.dart';
 
 final matchmakingServiceProvider = Provider<MatchmakingService>((ref) {
   return MatchmakingService(Supabase.instance.client);
@@ -43,7 +44,7 @@ class MatchmakingNotifier extends StateNotifier<MatchmakingState> {
 
   MatchmakingNotifier(this._service) : super(const MatchmakingState());
 
-  Future<void> findMatch() async {
+  Future<void> findMatch(TimeControl timeControl) async {
     state = const MatchmakingState(status: MatchmakingStatus.searching);
 
     try {
@@ -58,7 +59,7 @@ class MatchmakingNotifier extends StateNotifier<MatchmakingState> {
       });
 
       // Join the queue
-      await _service.joinQueue();
+      await _service.joinQueue(timeControlSeconds: timeControl.seconds);
 
       // Try to match immediately
       await _tryMatch();

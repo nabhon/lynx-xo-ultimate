@@ -16,6 +16,13 @@ class GameService {
     });
   }
 
+  /// Call the expire_game RPC.
+  Future<void> expireGame(String gameId) async {
+    await _client.rpc('expire_game', params: {
+      'p_game_id': gameId,
+    });
+  }
+
   /// Fetch the current game state.
   Future<Map<String, dynamic>> getGame(String gameId) async {
     final response =

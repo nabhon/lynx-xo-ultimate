@@ -3,10 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/app_theme.dart';
+import '../domain/time_control.dart';
 import '../providers/matchmaking_providers.dart';
 
 class MatchmakingDialog extends ConsumerStatefulWidget {
-  const MatchmakingDialog({super.key});
+  final TimeControl timeControl;
+
+  const MatchmakingDialog({super.key, required this.timeControl});
 
   @override
   ConsumerState<MatchmakingDialog> createState() => _MatchmakingDialogState();
@@ -18,7 +21,7 @@ class _MatchmakingDialogState extends ConsumerState<MatchmakingDialog> {
     super.initState();
     // Start searching when dialog opens
     Future.microtask(() {
-      ref.read(matchmakingProvider.notifier).findMatch();
+      ref.read(matchmakingProvider.notifier).findMatch(widget.timeControl);
     });
   }
 
@@ -55,6 +58,14 @@ class _MatchmakingDialogState extends ConsumerState<MatchmakingDialog> {
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: AppColors.textPrimary,
                     ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Time control: ${widget.timeControl.label}',
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 14,
+                ),
               ),
               const SizedBox(height: 24),
               OutlinedButton(
