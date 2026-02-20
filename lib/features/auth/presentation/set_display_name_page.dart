@@ -1,29 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../shared/theme/app_theme.dart';
 import '../providers/auth_providers.dart';
 
-class LoginPage extends ConsumerStatefulWidget {
-  const LoginPage({super.key});
+class SetDisplayNamePage extends ConsumerStatefulWidget {
+  const SetDisplayNamePage({super.key});
 
   @override
-  ConsumerState<LoginPage> createState() => _LoginPageState();
+  ConsumerState<SetDisplayNamePage> createState() => _SetDisplayNamePageState();
 }
 
-class _LoginPageState extends ConsumerState<LoginPage> {
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
+class _SetDisplayNamePageState extends ConsumerState<SetDisplayNamePage> {
+  final _nameController = TextEditingController();
   bool _isLoading = false;
   String? _error;
-  bool _isRegister = false;
 
   @override
   void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
+    _nameController.dispose();
     super.dispose();
   }
 
@@ -34,30 +30,34 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     });
 
     try {
-      final email = _emailController.text.trim();
-      final password = _passwordController.text.trim();
+      final name = _nameController.text.trim();
 
-      if (email.isEmpty || password.isEmpty) {
-        setState(() => _error = 'Please fill in all fields');
+      if (name.isEmpty) {
+        setState(() => _error = 'Please enter a display name');
+        return;
+      }
+
+      if (name.length < 3) {
+        setState(() => _error = 'Name must be at least 3 characters');
+        return;
+      }
+
+      if (name.length > 20) {
+        setState(() => _error = 'Name must be at most 20 characters');
         return;
       }
 
       final authService = ref.read(authServiceProvider);
-      if (_isRegister) {
-        await authService.signUp(email: email, password: password);
-        if (mounted) {
-          context.go('/set-display-name');
-        }
-      } else {
-        await authService.signIn(email: email, password: password);
-        if (mounted) {
-          context.go('/menu');
-        }
+      await authService.updateDisplayName(name);
+
+      // Refresh profile provider to ensure app state is up to date
+      ref.invalidate(profileProvider);
+
+      if (mounted) {
+        context.go('/menu');
       }
-    } on AuthException catch (e) {
-      setState(() => _error = e.message);
     } catch (e) {
-      setState(() => _error = 'An unexpected error occurred');
+      setState(() => _error = 'Failed to update display name');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -83,43 +83,37 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  'LOGIC',
+                  'WELCOME',
                   style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                     color: AppColors.playerX,
+                    fontSize: 32,
+                    letterSpacing: 4,
+                  ),
+                ),
+                Text(
+                  'PLAYER',
+                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                    color: AppColors.playerO,
                     fontSize: 48,
                     letterSpacing: 8,
                   ),
                 ),
-                Text(
-                  'XO',
-                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    color: AppColors.playerO,
-                    fontSize: 64,
-                    letterSpacing: 12,
-                  ),
-                ),
                 const SizedBox(height: 48),
-                TextField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  style: const TextStyle(color: AppColors.textPrimary),
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: Icon(
-                      Icons.email_outlined,
-                      color: AppColors.playerX,
-                    ),
+                Text(
+                  'Choose your display name',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: AppColors.textSecondary,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
                 TextField(
-                  controller: _passwordController,
-                  obscureText: true,
+                  controller: _nameController,
                   style: const TextStyle(color: AppColors.textPrimary),
+                  textAlign: TextAlign.center,
                   decoration: const InputDecoration(
-                    labelText: 'Password',
+                    hintText: 'Enter Name',
                     prefixIcon: Icon(
-                      Icons.lock_outline,
+                      Icons.badge_outlined,
                       color: AppColors.playerX,
                     ),
                   ),
@@ -147,19 +141,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               color: AppColors.background,
                             ),
                           )
-                        : Text(_isRegister ? 'REGISTER' : 'LOGIN'),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextButton(
-                  onPressed: _isLoading
-                      ? null
-                      : () => setState(() => _isRegister = !_isRegister),
-                  child: Text(
-                    _isRegister
-                        ? 'Already have an account? Login'
-                        : "Don't have an account? Register",
-                    style: const TextStyle(color: AppColors.textSecondary),
+                        : const Text('CONTINUE'),
                   ),
                 ),
               ],
