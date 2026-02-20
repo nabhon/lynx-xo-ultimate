@@ -49,9 +49,7 @@ class MatchmakingNotifier extends StateNotifier<MatchmakingState> {
 
     try {
       // Subscribe to realtime game creation first
-      // We await this to ensure we don't miss any events if the match is
-      // created immediately after we join the queue.
-      final matchStream = await _service.subscribeToMatchFound();
+      final matchStream = _service.subscribeToMatchFound();
       _matchSub = matchStream.listen((gameId) {
         _cleanup();
         state = MatchmakingState(
@@ -127,6 +125,6 @@ class MatchmakingNotifier extends StateNotifier<MatchmakingState> {
 
 final matchmakingProvider =
     StateNotifierProvider<MatchmakingNotifier, MatchmakingState>((ref) {
-      final service = ref.watch(matchmakingServiceProvider);
-      return MatchmakingNotifier(service);
-    });
+  final service = ref.watch(matchmakingServiceProvider);
+  return MatchmakingNotifier(service);
+});

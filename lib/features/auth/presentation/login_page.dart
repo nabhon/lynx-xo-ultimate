@@ -45,14 +45,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       final authService = ref.read(authServiceProvider);
       if (_isRegister) {
         await authService.signUp(email: email, password: password);
-        if (mounted) {
-          context.go('/set-display-name');
-        }
       } else {
         await authService.signIn(email: email, password: password);
-        if (mounted) {
-          context.go('/menu');
-        }
+      }
+
+      if (mounted) {
+        context.go('/menu');
       }
     } on AuthException catch (e) {
       setState(() => _error = e.message);
@@ -85,18 +83,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 Text(
                   'LOGIC',
                   style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    color: AppColors.playerX,
-                    fontSize: 48,
-                    letterSpacing: 8,
-                  ),
+                        color: AppColors.playerX,
+                        fontSize: 48,
+                        letterSpacing: 8,
+                      ),
                 ),
                 Text(
                   'XO',
                   style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    color: AppColors.playerO,
-                    fontSize: 64,
-                    letterSpacing: 12,
-                  ),
+                        color: AppColors.playerO,
+                        fontSize: 64,
+                        letterSpacing: 12,
+                      ),
                 ),
                 const SizedBox(height: 48),
                 TextField(
@@ -105,10 +103,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   style: const TextStyle(color: AppColors.textPrimary),
                   decoration: const InputDecoration(
                     labelText: 'Email',
-                    prefixIcon: Icon(
-                      Icons.email_outlined,
-                      color: AppColors.playerX,
-                    ),
+                    prefixIcon:
+                        Icon(Icons.email_outlined, color: AppColors.playerX),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -118,10 +114,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   style: const TextStyle(color: AppColors.textPrimary),
                   decoration: const InputDecoration(
                     labelText: 'Password',
-                    prefixIcon: Icon(
-                      Icons.lock_outline,
-                      color: AppColors.playerX,
-                    ),
+                    prefixIcon:
+                        Icon(Icons.lock_outline, color: AppColors.playerX),
                   ),
                   onSubmitted: (_) => _submit(),
                 ),

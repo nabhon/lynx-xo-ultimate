@@ -34,12 +34,8 @@ class MatchmakingService {
 
   /// Subscribe to INSERT events on the `games` table where I am a participant.
   /// Returns a stream that emits the game ID when a match is found.
-  /// Subscribe to INSERT events on the `games` table where I am a participant.
-  /// Returns a stream that emits the game ID when a match is found.
-  /// Awaits until the subscription is confirmed to ensure no events are missed.
-  Future<Stream<String>> subscribeToMatchFound() async {
+  Stream<String> subscribeToMatchFound() {
     final controller = StreamController<String>.broadcast();
-    final completer = Completer<void>();
 
     _channel = _client
         .channel('matchmaking_$_userId')
@@ -71,21 +67,7 @@ class MatchmakingService {
             controller.add(gameId);
           },
         )
-        .subscribe((status, [error]) {
-          if (status == RealtimeSubscribeStatus.subscribed &&
-              !completer.isCompleted) {
-            completer.complete();
-          }
-        });
-
-    // Wait for subscription to be established
-    // We use a timeout to avoid blocking indefinitely if there's a connection issue
-    try {
-      await completer.future.timeout(const Duration(seconds: 10));
-    } catch (_) {
-      // Proceed even if timeout/error, but log/warn if possible
-      // In this context we just continue to try our best
-    }
+        .subscribe();
 
     return controller.stream;
   }

@@ -5,7 +5,8 @@ class AuthService {
 
   AuthService(this._client);
 
-  Stream<AuthState> get authStateChanges => _client.auth.onAuthStateChange;
+  Stream<AuthState> get authStateChanges =>
+      _client.auth.onAuthStateChange;
 
   Session? get currentSession => _client.auth.currentSession;
 
@@ -27,22 +28,5 @@ class AuthService {
 
   Future<void> signOut() {
     return _client.auth.signOut();
-  }
-
-  Future<Map<String, dynamic>> getProfile(String userId) async {
-    final response = await _client
-        .from('profiles')
-        .select()
-        .eq('id', userId)
-        .single();
-    return response;
-  }
-
-  Future<void> updateDisplayName(String displayName) async {
-    final userId = _client.auth.currentUser!.id;
-    await _client
-        .from('profiles')
-        .update({'display_name': displayName})
-        .eq('id', userId);
   }
 }
