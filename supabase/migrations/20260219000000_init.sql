@@ -79,7 +79,9 @@ create table if not exists public.games (
   board jsonb not null default '[null,null,null,null,null,null,null,null,null]'::jsonb,
   x_moves jsonb not null default '[]'::jsonb,
   o_moves jsonb not null default '[]'::jsonb,
-  status text not null default 'playing' check (status in ('playing','won','draw')),
+  player_x_ready boolean not null default false,
+  player_o_ready boolean not null default false,
+  status text not null default 'waiting' check (status in ('waiting','playing','won','draw','abandoned')),
   winner uuid references auth.users(id),
   created_at timestamptz not null default now()
 );
@@ -143,7 +145,74 @@ end;
 $$;
 
 
--- 5. MAKE_MOVE RPC
+-- 5. MARK_READY RPC
+-- Called by players to acknowledge they have connected to the game.
+-- Transitions game to 'playing' when both are ready.
+create or replace function public.mark_ready(game_id uuid)
+returns void
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  g record;
+  caller uuid := auth.uid();
+begin
+  select * into g from public.games where id = game_id for update;
+
+  if g is null then
+    raise exception 'Game not found';
+  end if;
+
+  if g.status != 'waiting' then
+    return;
+  end if;
+
+  if caller = g.player_x then
+    update public.games set player_x_ready = true where id = game_id;
+  elsif caller = g.player_o then
+    update public.games set player_o_ready = true where id = game_id;
+  else
+    raise exception 'You are not a player in this game';
+  end if;
+
+  -- Refresh game and check if both are ready
+  select * into g from public.games where id = game_id;
+  if g.player_x_ready and g.player_o_ready then
+    update public.games set status = 'playing' where id = game_id;
+  end if;
+end;
+$$;
+
+
+-- 6. ABANDON_GAME RPC
+-- Allows a player to abandon a waiting game if the opponent fails to connect.
+create or replace function public.abandon_game(game_id uuid)
+returns void
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  g record;
+  caller uuid := auth.uid();
+begin
+  select * into g from public.games where id = game_id for update;
+
+  if g is null then
+    raise exception 'Game not found';
+  end if;
+
+  if caller != g.player_x and caller != g.player_o then
+    raise exception 'You are not a player in this game';
+  end if;
+
+  if g.status = 'waiting' then
+    update public.games set status = 'abandoned' where id = game_id;
+  end if;
+end;
+$$;
+
+
+-- 7. MAKE_MOVE RPC
 -- Server-authoritative move logic: validates turn, cell, 3-piece limit,
 -- win detection, and score updates.
 create or replace function public.make_move(game_id uuid, cell_index int)

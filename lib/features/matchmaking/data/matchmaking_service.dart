@@ -72,6 +72,41 @@ class MatchmakingService {
     return controller.stream;
   }
 
+  /// Mark the current user as ready for a matching game.
+  Future<void> markReady(String gameId) async {
+    await _client.rpc('mark_ready', params: {'game_id': gameId});
+  }
+
+  /// Abandon a game the user is currently waiting in.
+  Future<void> abandonGame(String gameId) async {
+    await _client.rpc('abandon_game', params: {'game_id': gameId});
+  }
+
+  /// Subscribe to UPDATE events on a specific row in the `games` table.
+  /// Returns a stream that emits the game record.
+  Stream<Map<String, dynamic>> subscribeToGameUpdates(String gameId) {
+    final controller = StreamController<Map<String, dynamic>>.broadcast();
+
+    _client
+        .channel('game_updates_$gameId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'games',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'id',
+            value: gameId,
+          ),
+          callback: (payload) {
+            controller.add(payload.newRecord);
+          },
+        )
+        .subscribe();
+
+    return controller.stream;
+  }
+
   /// Unsubscribe from matchmaking realtime channel.
   Future<void> unsubscribe() async {
     if (_channel != null) {

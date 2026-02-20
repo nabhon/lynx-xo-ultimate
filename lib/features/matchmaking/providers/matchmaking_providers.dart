@@ -10,7 +10,15 @@ final matchmakingServiceProvider = Provider<MatchmakingService>((ref) {
   return MatchmakingService(Supabase.instance.client);
 });
 
-enum MatchmakingStatus { idle, searching, matched, timeout, error }
+enum MatchmakingStatus {
+  idle,
+  searching,
+  waitingForOpponent,
+  matched,
+  abandoned,
+  timeout,
+  error,
+}
 
 class MatchmakingState {
   final MatchmakingStatus status;
@@ -39,6 +47,7 @@ class MatchmakingState {
 class MatchmakingNotifier extends StateNotifier<MatchmakingState> {
   final MatchmakingService _service;
   StreamSubscription<String>? _matchSub;
+  StreamSubscription<Map<String, dynamic>>? _gameSub;
   Timer? _timeoutTimer;
   Timer? _pollTimer;
 
@@ -51,11 +60,7 @@ class MatchmakingNotifier extends StateNotifier<MatchmakingState> {
       // Subscribe to realtime game creation first
       final matchStream = _service.subscribeToMatchFound();
       _matchSub = matchStream.listen((gameId) {
-        _cleanup();
-        state = MatchmakingState(
-          status: MatchmakingStatus.matched,
-          gameId: gameId,
-        );
+        _handleMatchFound(gameId);
       });
 
       // Join the queue
@@ -82,16 +87,65 @@ class MatchmakingNotifier extends StateNotifier<MatchmakingState> {
     }
   }
 
+  void _handleMatchFound(String gameId) async {
+    // Prevent duplicate handling if polled and matched simultaneously
+    if (state.status == MatchmakingStatus.waitingForOpponent ||
+        state.status == MatchmakingStatus.matched) {
+      return;
+    }
+
+    _cleanupQueueTimers();
+
+    state = MatchmakingState(
+      status: MatchmakingStatus.waitingForOpponent,
+      gameId: gameId,
+    );
+
+    // Subscribe to game updates to wait for status == 'playing'
+    _gameSub = _service.subscribeToGameUpdates(gameId).listen((gameData) {
+      final status = gameData['status'];
+      if (status == 'playing') {
+        _gameSub?.cancel();
+        _gameSub = null;
+        _timeoutTimer?.cancel();
+        state = MatchmakingState(
+          status: MatchmakingStatus.matched,
+          gameId: gameId,
+        );
+      } else if (status == 'abandoned') {
+        _gameSub?.cancel();
+        _gameSub = null;
+        _timeoutTimer?.cancel();
+        state = const MatchmakingState(
+          status: MatchmakingStatus.abandoned,
+          errorMessage: 'Opponent failed to connect.',
+        );
+      }
+    });
+
+    // Mark self as ready
+    try {
+      await _service.markReady(gameId);
+    } catch (e) {
+      // Ignore if game doesn't exist or already started
+    }
+
+    // Wait 15 seconds for opponent to connect
+    _timeoutTimer = Timer(const Duration(seconds: 15), () async {
+      await _service.abandonGame(gameId);
+      state = const MatchmakingState(
+        status: MatchmakingStatus.timeout,
+        errorMessage: 'Connection to opponent timed out.',
+      );
+    });
+  }
+
   Future<void> _tryMatch() async {
     if (state.status != MatchmakingStatus.searching) return;
     try {
       final gameId = await _service.callMatchPlayers();
       if (gameId != null && state.status == MatchmakingStatus.searching) {
-        _cleanup();
-        state = MatchmakingState(
-          status: MatchmakingStatus.matched,
-          gameId: gameId,
-        );
+        _handleMatchFound(gameId);
       }
     } catch (_) {
       // Match not found yet — keep waiting
@@ -99,6 +153,11 @@ class MatchmakingNotifier extends StateNotifier<MatchmakingState> {
   }
 
   Future<void> cancelSearch() async {
+    if (state.status == MatchmakingStatus.waitingForOpponent &&
+        state.gameId != null) {
+      await _service.abandonGame(state.gameId!);
+    }
+
     _cleanup();
     try {
       await _service.leaveQueue();
@@ -106,13 +165,19 @@ class MatchmakingNotifier extends StateNotifier<MatchmakingState> {
     state = const MatchmakingState(status: MatchmakingStatus.idle);
   }
 
-  void _cleanup() {
+  void _cleanupQueueTimers() {
     _matchSub?.cancel();
     _matchSub = null;
     _timeoutTimer?.cancel();
     _timeoutTimer = null;
     _pollTimer?.cancel();
     _pollTimer = null;
+  }
+
+  void _cleanup() {
+    _cleanupQueueTimers();
+    _gameSub?.cancel();
+    _gameSub = null;
     _service.unsubscribe();
   }
 
@@ -125,6 +190,6 @@ class MatchmakingNotifier extends StateNotifier<MatchmakingState> {
 
 final matchmakingProvider =
     StateNotifierProvider<MatchmakingNotifier, MatchmakingState>((ref) {
-  final service = ref.watch(matchmakingServiceProvider);
-  return MatchmakingNotifier(service);
-});
+      final service = ref.watch(matchmakingServiceProvider);
+      return MatchmakingNotifier(service);
+    });
